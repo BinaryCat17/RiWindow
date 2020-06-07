@@ -1,10 +1,33 @@
-project('RiWindow', 'cpp', default_options : ['cpp_std=c++17'])
+project('RiWindow', 'cpp',
+    version : '1.0',
+    default_options : ['cpp_std=c++17', 'warning_level=3'])
 
 cmake = import('cmake')
-signals_proj = cmake.subproject('signals')
 
-signals_dep = signals_proj.dependency('signals')
+# dependencies ------------------------------------------------------------------------------------
 
-RiWindow_deps = [signals_dep]
-RiWindow_inc = include_directories('include')
-RiWindow_dep = declare_dependency(include_directories : RiWindow_inc, dependencies : RiWindow_deps)
+signals = dependency('signals', required : false)
+if not signals.found()
+    signals = cmake.subproject('signals').dependency('signals')
+endif
+
+glfw = dependency('glfw3', required : false)
+if not glfw.found()
+    glfw = cmake.subproject('glfw').dependency('glfw')
+endif
+
+RiUtil = dependency('RiUtil', fallback : ['RiUtil', 'RiUtil_dep'])
+
+# project -----------------------------------------------------------------------------------------
+
+includes = include_directories('src')
+deps = [signals, glfw, RiUtil]
+
+lib = static_library('RiWindow',
+    'src/RiWindow/window.cpp',
+    install : true,
+    dependencies : deps,
+    include_directories : includes)
+
+RiWindow_dep = declare_dependency(link_with : lib,
+    include_directories : includes, dependencies : deps)
