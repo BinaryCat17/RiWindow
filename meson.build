@@ -4,7 +4,7 @@ project('RiWindow', 'cpp',
 
 cmake = import('cmake')
 
-# dependencies ------------------------------------------------------------------------------------
+# dependencies
 
 signals = dependency('signals', required : false)
 if not signals.found()
@@ -18,7 +18,7 @@ endif
 
 RiUtil = dependency('RiUtil', fallback : ['RiUtil', 'RiUtil_dep'])
 
-# project -----------------------------------------------------------------------------------------
+# project
 
 includes = include_directories('src')
 deps = [signals, glfw, RiUtil]
@@ -31,3 +31,9 @@ lib = static_library('RiWindow',
 
 RiWindow_dep = declare_dependency(link_with : lib,
     include_directories : includes, dependencies : deps)
+
+
+# tests
+
+testWindow = executable('testWindow', 'tests/window_test.cpp', dependencies : RiWindow_dep)
+test('testWindow', testWindow)

@@ -1,5 +1,4 @@
 #pragma once
-
 #include <RiUtil/types.hpp>
 #include <signals.h>
 #include <GLFW/glfw3.h>
@@ -10,11 +9,9 @@
 namespace rise {
     using std::optional; using std::string; using std::unique_ptr;
 
-    // util ---------------------------------------------------------------------------------------
-
-    using UniqueGlfwWindow = unique_ptr<GLFWwindow, decltype(glfwDestroyWindow) *>;
-
-    // Window -------------------------------------------------------------------------------------
+    namespace util {
+        using UniqueGlfwWindow = unique_ptr<GLFWwindow, decltype(glfwDestroyWindow) *>;
+    }
 
     class Window {
         friend class WindowBuilder;
@@ -23,7 +20,7 @@ namespace rise {
 
         // property -------------------------------------------------------------------------------
 
-        void setTitle(string const& title);
+        void setTitle(string const &title);
 
         void setSize(Extent2D size);
 
@@ -33,7 +30,7 @@ namespace rise {
 
         Point2D getPosition() const;
 
-        Extent2D getFramebufferSize() const;
+        Extent2D getFrameBufferSize() const;
 
         // signals --------------------------------------------------------------------------------
 
@@ -56,12 +53,12 @@ namespace rise {
         }
 
         template<typename Fn>
-        unsigned onFramebufferResize(Fn slot) {
-            return mOnFramebufferResize.connect(std::move(slot));
+        unsigned onFrameBufferResize(Fn slot) {
+            return mOnFrameBufferResize.connect(std::move(slot));
         }
 
-        bool onFramebufferResizeDisconnect(unsigned id) {
-            return mOnFramebufferResize.disconnect(id);
+        bool onFrameBufferResizeDisconnect(unsigned id) {
+            return mOnFrameBufferResize.disconnect(id);
         }
 
         template<typename Fn>
@@ -74,20 +71,20 @@ namespace rise {
         }
 
     private:
-        explicit Window(UniqueGlfwWindow window);
+        explicit Window(util::UniqueGlfwWindow window);
 
         static void closeCallback(GLFWwindow *glfWindow);
 
         static void resizeCallback(GLFWwindow *glfWindow, int, int);
 
-        static void framebufferResizeCallback(GLFWwindow *glfWindow, int, int);
+        static void frameBufferResizeCallback(GLFWwindow *glfWindow, int, int);
 
         static void moveCallback(GLFWwindow *glfWindow, int, int);
 
-        UniqueGlfwWindow mWindow;
+        util::UniqueGlfwWindow mWindow;
         vdk::signal<void()> mOnClose;
         vdk::signal<void()> mOnResize;
-        vdk::signal<void()> mOnFramebufferResize;
+        vdk::signal<void()> mOnFrameBufferResize;
         vdk::signal<void()> mOnMove;
     };
 
@@ -100,7 +97,7 @@ namespace rise {
     public:
         Window build() const;
 
-        WindowBuilder& openGL(Version version) {
+        WindowBuilder &openGL(Version version) {
             mOpenGlVersion = version;
             return *this;
         }
@@ -161,9 +158,9 @@ namespace rise {
         }
 
     private:
-        UniqueGlfwWindow buildGlfwWindow() const;
+        util::UniqueGlfwWindow buildGlfwWindow() const;
 
-        optional<Version> mOpenGlVersion;
+        optional <Version> mOpenGlVersion;
         Extent2D mExtent = Extent2D{Width(800), Height(600)};
         string mTitle = "RiWindow";
         bool mResizable = true;

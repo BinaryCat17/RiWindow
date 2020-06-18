@@ -2,3 +2,4 @@ build
 subprojects/glfw
 subprojects/RiUtil
 subprojects/signals
+subprojects/magic_enum

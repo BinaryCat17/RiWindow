@@ -2,25 +2,23 @@
 #include "window.hpp"
 
 namespace rise {
-    // util ---------------------------------------------------------------------------------------
-
-    struct GlfwInitializer {
-        GlfwInitializer() {
-            if (!glfwInit()) {
-                throw std::runtime_error("Fail to initialize glfw!");
+    namespace {
+        struct GlfwInitializer {
+            GlfwInitializer() {
+                if (!glfwInit()) {
+                    throw std::runtime_error("Fail to initialize glfw!");
+                }
             }
-        }
 
-        ~GlfwInitializer() {
-            glfwTerminate();
-        }
-    };
+            ~GlfwInitializer() {
+                glfwTerminate();
+            }
+        };
 
-    Window *getFromGlfw(GLFWwindow *window) {
-        return reinterpret_cast<Window *>(glfwGetWindowUserPointer(window));
+        Window *getFromGlfw(GLFWwindow *window) {
+            return reinterpret_cast<Window *>(glfwGetWindowUserPointer(window));
+        }
     }
-
-    // Window -------------------------------------------------------------------------------------
 
     Window::Window(string const &title, Extent2D extent) : Window(
             WindowBuilder().title(title).size(extent).buildGlfwWindow()) {}
@@ -31,8 +29,8 @@ namespace rise {
 
     void Window::setSize(Extent2D size) {
         glfwSetWindowSize(mWindow.get(),
-                static_cast<int>(size.width.value),
-                static_cast<int>(size.height.value));
+                static_cast<int>(size.width),
+                static_cast<int>(size.height));
     }
 
     Extent2D Window::getSize() const {
@@ -46,7 +44,7 @@ namespace rise {
                 rise::Height(static_cast<unsigned>(height)));
     }
 
-    Extent2D Window::getFramebufferSize() const {
+    Extent2D Window::getFrameBufferSize() const {
         int width = 0;
         int height = 0;
 
@@ -59,8 +57,8 @@ namespace rise {
 
     void Window::setPosition(Point2D size) {
         glfwSetWindowSize(mWindow.get(),
-                static_cast<int>(size.x.value),
-                static_cast<int>(size.y.value));
+                static_cast<int>(size.x),
+                static_cast<int>(size.y));
     }
 
     Point2D Window::getPosition() const {
@@ -74,11 +72,11 @@ namespace rise {
                 rise::Y(static_cast<unsigned>(height)));
     }
 
-    Window::Window(UniqueGlfwWindow window) : mWindow(move(window)) {
+    Window::Window(util::UniqueGlfwWindow window) : mWindow(move(window)) {
         glfwSetWindowUserPointer(mWindow.get(), this);
         glfwSetWindowCloseCallback(mWindow.get(), &closeCallback);
         glfwSetWindowSizeCallback(mWindow.get(), &resizeCallback);
-        glfwSetFramebufferSizeCallback(mWindow.get(), &framebufferResizeCallback);
+        glfwSetFramebufferSizeCallback(mWindow.get(), &frameBufferResizeCallback);
         glfwSetWindowPosCallback(mWindow.get(), &moveCallback);
     }
 
@@ -92,9 +90,9 @@ namespace rise {
         window->mOnResize.emit();
     }
 
-    void Window::framebufferResizeCallback(GLFWwindow *glfWindow, int, int) {
+    void Window::frameBufferResizeCallback(GLFWwindow *glfWindow, int, int) {
         auto window = getFromGlfw(glfWindow);
-        window->mOnFramebufferResize.emit();
+        window->mOnFrameBufferResize.emit();
     }
 
     void Window::moveCallback(GLFWwindow *glfWindow, int, int) {
@@ -112,10 +110,10 @@ namespace rise {
         return Window(buildGlfwWindow());
     }
 
-    UniqueGlfwWindow WindowBuilder::buildGlfwWindow() const {
+    util::UniqueGlfwWindow WindowBuilder::buildGlfwWindow() const {
         static GlfwInitializer initializer = {};
 
-        if(mOpenGlVersion) {
+        if (mOpenGlVersion) {
             glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, static_cast<int>(mOpenGlVersion->major));
             glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, static_cast<int>(mOpenGlVersion->minor));
 
@@ -139,8 +137,8 @@ namespace rise {
         glfwWindowHint(GLFW_SCALE_TO_MONITOR, mScaleToMonitor);
 
         auto window = glfwCreateWindow(
-                static_cast<int>(mExtent.width.value),
-                static_cast<int>(mExtent.height.value),
+                static_cast<int>(mExtent.width),
+                static_cast<int>(mExtent.height),
                 mTitle.c_str(),
                 nullptr,
                 nullptr);
@@ -151,7 +149,6 @@ namespace rise {
             throw std::runtime_error(error);
         }
 
-        return UniqueGlfwWindow(window, &glfwDestroyWindow);
+        return util::UniqueGlfwWindow(window, &glfwDestroyWindow);
     }
-
 }
