@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 #include <RiWindow/window.hpp>
 
-TEST ( window, simpleWindow )
-{
-    
+int main() {
+
 }
