@@ -1,154 +1,151 @@
-#include <stdexcept>
 #include "window.hpp"
+#include <iostream>
 
 namespace rise {
-    namespace {
-        struct GlfwInitializer {
-            GlfwInitializer() {
-                if (!glfwInit()) {
-                    throw std::runtime_error("Fail to initialize glfw!");
-                }
+    Window *getFromGlfw(GLFWwindow *window) {
+        return reinterpret_cast<Window *>(glfwGetWindowUserPointer(window));
+    }
+
+    struct GlfwInitializer {
+        GlfwInitializer() {
+            if (!glfwInit()) {
+                throw std::runtime_error("Fail to initialize glfw!");
             }
 
-            ~GlfwInitializer() {
-                glfwTerminate();
-            }
+            auto rate = glfwGetVideoMode(glfwGetPrimaryMonitor())->refreshRate;
+            auto interval = std::chrono::milliseconds(1000) / rate;
+
+            auto glfwUpdate = observable<>::interval(interval, observe_on_new_thread());
+            glfwUpdate.subscribe([](int) {
+                glfwPollEvents();
+            });
+        }
+
+        ~GlfwInitializer() {
+            glfwTerminate();
+        }
+    };
+
+    impl::WindowHandle createWindow(Extent2D size) {
+        static GlfwInitializer initializer;
+
+        return impl::WindowHandle {
+            glfwCreateWindow(size.width, size.height, "undefined window", nullptr, nullptr),
+            glfwDestroyWindow
         };
+    }
 
-        Window *getFromGlfw(GLFWwindow *window) {
-            return reinterpret_cast<Window *>(glfwGetWindowUserPointer(window));
+    template<typename T, typename FnT>
+    void subscribeOnUser(WindowProperty<T> const &prop, FnT &&fn) {
+        return std::visit(overloaded {
+            [&fn](T const &v) {
+                fn(v);
+            }, [&fn](observable<T> const &v) {
+                v.subscribe(fn);
+            },
+        }, prop);
+    }
+
+    template<typename T, typename FnT>
+    void subscribeOnUser(std::optional<WindowProperty<T>> const &prop, FnT &&fn) {
+        if (prop.has_value()) {
+            subscribeOnUser(*prop, fn);
         }
     }
 
-    Window::Window(string const &title, Extent2D extent) : Window(
-            WindowBuilder().title(title).size(extent).buildGlfwWindow()) {}
+    Window::Window(
+        WindowProperty<std::string_view> const &title,
+        Extent2D const &size,
+        std::optional<WindowProperty<WindowEvent>> const &events
+    ) : mWindow(createWindow(size)) {
 
-    void Window::setTitle(string const &title) {
-        glfwSetWindowTitle(mWindow.get(), title.c_str());
-    }
-
-    void Window::setSize(Extent2D size) {
-        glfwSetWindowSize(mWindow.get(),
-                static_cast<int>(size.width),
-                static_cast<int>(size.height));
-    }
-
-    Extent2D Window::getSize() const {
-        int width = 0;
-        int height = 0;
-
-        glfwGetWindowSize(mWindow.get(), &width, &height);
-
-        return Extent2D(
-                rise::Width(static_cast<unsigned>(width)),
-                rise::Height(static_cast<unsigned>(height)));
-    }
-
-    Extent2D Window::getFrameBufferSize() const {
-        int width = 0;
-        int height = 0;
-
-        glfwGetFramebufferSize(mWindow.get(), &width, &height);
-
-        return Extent2D(
-                rise::Width(static_cast<unsigned>(width)),
-                rise::Height(static_cast<unsigned>(height)));
-    }
-
-    void Window::setPosition(Point2D size) {
-        glfwSetWindowSize(mWindow.get(),
-                static_cast<int>(size.x),
-                static_cast<int>(size.y));
-    }
-
-    Point2D Window::getPosition() const {
-        int width = 0;
-        int height = 0;
-
-        glfwGetWindowPos(mWindow.get(), &width, &height);
-
-        return Point2D(
-                rise::X(static_cast<unsigned>(width)),
-                rise::Y(static_cast<unsigned>(height)));
-    }
-
-    Window::Window(util::UniqueGlfwWindow window) : mWindow(move(window)) {
         glfwSetWindowUserPointer(mWindow.get(), this);
         glfwSetWindowCloseCallback(mWindow.get(), &closeCallback);
         glfwSetWindowSizeCallback(mWindow.get(), &resizeCallback);
         glfwSetFramebufferSizeCallback(mWindow.get(), &frameBufferResizeCallback);
         glfwSetWindowPosCallback(mWindow.get(), &moveCallback);
+        glfwSetWindowMaximizeCallback(mWindow.get(), &maximizeCallback);
+        glfwSetWindowFocusCallback(mWindow.get(), &focusCallback);
+
+        subscribeOnUser(title, [this](std::string_view title) {
+            glfwSetWindowTitle(mWindow.get(), title.data());
+        });
+
+        subscribeOnUser(events, [this](WindowEvent event) {
+            auto settings = glfwGetVideoMode(glfwGetPrimaryMonitor());
+
+            switch (event) {
+                case WindowEvent::FullScreen:
+                    glfwSetWindowMonitor(mWindow.get(), glfwGetPrimaryMonitor(), 0, 0,
+                        settings->width, settings->height, settings->refreshRate);
+                    break;
+                case WindowEvent::Windowed:
+                    glfwSetWindowMonitor(mWindow.get(), glfwGetPrimaryMonitor(),
+                        settings->width / 3, settings->height / 3,
+                        settings->width / 3, settings->height / 3,
+                        settings->refreshRate);
+                    break;
+                case WindowEvent::Borderless:
+                    glfwSetWindowAttrib(mWindow.get(), GLFW_DECORATED, GLFW_FALSE);
+                    break;
+                case WindowEvent::Framed:
+                    glfwSetWindowAttrib(mWindow.get(), GLFW_DECORATED, GLFW_TRUE);
+                    break;
+                default:
+                    break;
+            }
+        });
+    }
+
+    Window::Window(Window &&rhs) noexcept:
+        mEvents(std::move(rhs.mEvents)),
+        mSize(std::move(rhs.mSize)),
+        mPos(std::move(rhs.mPos)),
+        mFrameBufferSize(std::move(rhs.mFrameBufferSize)),
+        mWindow(std::move(rhs.mWindow)) {
+
+        glfwSetWindowUserPointer(mWindow.get(), this);
+    }
+
+    Window &Window::operator=(Window &&rhs) noexcept {
+        mEvents = std::move(rhs.mEvents);
+        mSize = std::move(rhs.mSize);
+        mPos = std::move(rhs.mPos);
+        mFrameBufferSize = std::move(rhs.mFrameBufferSize);
+        mWindow = std::move(rhs.mWindow);
+        glfwSetWindowUserPointer(mWindow.get(), this);
+        return *this;
     }
 
     void Window::closeCallback(GLFWwindow *glfWindow) {
         auto window = getFromGlfw(glfWindow);
-        window->mOnClose.emit();
+        window->mEvents.get_subscriber().on_next(WindowUserEvent::ShouldClose);
     }
 
-    void Window::resizeCallback(GLFWwindow *glfWindow, int, int) {
+    void Window::resizeCallback(GLFWwindow *glfWindow, int width, int height) {
         auto window = getFromGlfw(glfWindow);
-        window->mOnResize.emit();
+        window->mSize.get_subscriber().on_next(Extent2D(width, height));
     }
 
-    void Window::frameBufferResizeCallback(GLFWwindow *glfWindow, int, int) {
+    void Window::frameBufferResizeCallback(GLFWwindow *glfWindow, int width, int height) {
         auto window = getFromGlfw(glfWindow);
-        window->mOnFrameBufferResize.emit();
+        window->mFrameBufferSize.get_subscriber().on_next(Extent2D(width, height));
     }
 
-    void Window::moveCallback(GLFWwindow *glfWindow, int, int) {
+    void Window::moveCallback(GLFWwindow *glfWindow, int x, int y) {
         auto window = getFromGlfw(glfWindow);
-        window->mOnMove.emit();
+        window->mPos.get_subscriber().on_next(Point2D(x, y));
     }
 
-    void poolEvents() {
-        glfwPollEvents();
+    void Window::maximizeCallback(GLFWwindow *glfWindow, int val) {
+        auto window = getFromGlfw(glfWindow);
+        window->mEvents.get_subscriber().on_next(
+            val ? WindowUserEvent::Maximize : WindowUserEvent::Minimize);
     }
 
-    // WindowBuilder ------------------------------------------------------------------------------
-
-    Window WindowBuilder::build() const {
-        return Window(buildGlfwWindow());
-    }
-
-    util::UniqueGlfwWindow WindowBuilder::buildGlfwWindow() const {
-        static GlfwInitializer initializer = {};
-
-        if (mOpenGlVersion) {
-            glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, static_cast<int>(mOpenGlVersion->major));
-            glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, static_cast<int>(mOpenGlVersion->minor));
-
-            if (*mOpenGlVersion < Version(3, 2)) {
-                glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_ANY_PROFILE);
-            } else {
-                glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-            }
-        } else {
-            glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        }
-
-        glfwWindowHint(GLFW_RESIZABLE, mResizable);
-        glfwWindowHint(GLFW_VISIBLE, mVisible);
-        glfwWindowHint(GLFW_DECORATED, mDecorated);
-        glfwWindowHint(GLFW_FOCUSED, mFocused);
-        glfwWindowHint(GLFW_FLOATING, mFloating);
-        glfwWindowHint(GLFW_MAXIMIZED, mMaximized);
-        glfwWindowHint(GLFW_CENTER_CURSOR, mCenterCursor);
-        glfwWindowHint(GLFW_FOCUS_ON_SHOW, mFocusOnShow);
-        glfwWindowHint(GLFW_SCALE_TO_MONITOR, mScaleToMonitor);
-
-        auto window = glfwCreateWindow(
-                static_cast<int>(mExtent.width),
-                static_cast<int>(mExtent.height),
-                mTitle.c_str(),
-                nullptr,
-                nullptr);
-
-        if (!window) {
-            char const *error = nullptr;
-            glfwGetError(&error);
-            throw std::runtime_error(error);
-        }
-
-        return util::UniqueGlfwWindow(window, &glfwDestroyWindow);
+    void Window::focusCallback(GLFWwindow *glfWindow, int val) {
+        auto window = getFromGlfw(glfWindow);
+        window->mEvents.get_subscriber().on_next(
+            val ? WindowUserEvent::Focused : WindowUserEvent::Relaxed);
     }
 }

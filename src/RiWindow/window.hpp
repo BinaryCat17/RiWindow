@@ -1,77 +1,84 @@
 #pragma once
-#include <RiUtil/types.hpp>
-#include <signals.h>
+#include <rxcpp/rx.hpp>
+#include <string_view>
+#include <RiUtil.hpp>
 #include <GLFW/glfw3.h>
-#include <optional>
-#include <string>
-#include <memory>
+#include <atomic>
+#include <variant>
 
 namespace rise {
-    using std::optional; using std::string; using std::unique_ptr;
+    using namespace rxcpp;
+    using namespace rxcpp::operators;
+    using namespace rxcpp::subjects;
 
-    namespace util {
-        using UniqueGlfwWindow = unique_ptr<GLFWwindow, decltype(glfwDestroyWindow) *>;
+    enum class WindowUserEvent {
+        Minimize,
+        Maximize,
+        Focused,
+        Relaxed,
+        ShouldClose,
+    };
+
+    enum class WindowEvent {
+        FullScreen,
+        Windowed,
+        Borderless,
+        Framed,
+    };
+
+    namespace impl {
+        using WindowHandle = std::unique_ptr<GLFWwindow, decltype(glfwDestroyWindow) *>;
     }
 
-    class Window {
-        friend class WindowBuilder;
+    template<typename T>
+    using WindowProperty = std::variant<observable<T>, T>;
+
+    class Window : NonCopyable {
     public:
-        explicit Window(string const &title, Extent2D extent);
+        explicit Window(
+            WindowProperty<std::string_view> const &title,
+            Extent2D const &size,
+            std::optional<WindowProperty<WindowEvent>> const &events = {}
+        );
 
-        // property -------------------------------------------------------------------------------
+        Window(Window && rhs) noexcept;
 
-        void setTitle(string const &title);
+        Window& operator=(Window && rhs) noexcept;
 
-        void setSize(Extent2D size);
-
-        Extent2D getSize() const;
-
-        void setPosition(Point2D size);
-
-        Point2D getPosition() const;
-
-        Extent2D getFrameBufferSize() const;
-
-        // signals --------------------------------------------------------------------------------
-
-        template<typename Fn>
-        unsigned onClose(Fn slot) {
-            return mOnClose.connect(std::move(slot));
+        [[nodiscard]] observable<WindowUserEvent> event() const {
+            return mEvents.get_observable();
         }
 
-        bool onCloseDisconnect(unsigned id) {
-            return mOnClose.disconnect(id);
+        [[nodiscard]] observable<Extent2D> size() const {
+            return mSize.get_observable();
         }
 
-        template<typename Fn>
-        unsigned onResize(Fn slot) {
-            return mOnResize.connect(std::move(slot));
+        [[nodiscard]] observable<Point2D> pos() const {
+            return mPos.get_observable();
         }
 
-        bool onResizeDisconnect(unsigned id) {
-            return mOnResize.disconnect(id);
+        [[nodiscard]] observable<Extent2D> frameBufferSize() const {
+            return mFrameBufferSize.get_observable();
         }
 
-        template<typename Fn>
-        unsigned onFrameBufferResize(Fn slot) {
-            return mOnFrameBufferResize.connect(std::move(slot));
+        friend bool operator==(const Window &lhs, const Window &rhs) {
+            return lhs.mWindow == rhs.mWindow;
         }
 
-        bool onFrameBufferResizeDisconnect(unsigned id) {
-            return mOnFrameBufferResize.disconnect(id);
-        }
-
-        template<typename Fn>
-        unsigned onMove(Fn slot) {
-            return mOnMove.connect(std::move(slot));
-        }
-
-        bool onMoveDisconnect(unsigned id) {
-            return mOnMove.disconnect(id);
+        friend bool operator!=(const Window &lhs, const Window &rhs) {
+            return !(rhs == lhs);
         }
 
     private:
-        explicit Window(util::UniqueGlfwWindow window);
+        friend struct std::hash<Window>;
+
+        subject<WindowUserEvent> mEvents;
+
+        subject<Extent2D> mSize;
+
+        subject<Point2D> mPos;
+
+        subject<Extent2D> mFrameBufferSize;
 
         static void closeCallback(GLFWwindow *glfWindow);
 
@@ -81,97 +88,21 @@ namespace rise {
 
         static void moveCallback(GLFWwindow *glfWindow, int, int);
 
-        util::UniqueGlfwWindow mWindow;
-        vdk::signal<void()> mOnClose;
-        vdk::signal<void()> mOnResize;
-        vdk::signal<void()> mOnFrameBufferResize;
-        vdk::signal<void()> mOnMove;
+        static void maximizeCallback(GLFWwindow *glfWindow, int);
+
+        static void focusCallback(GLFWwindow *glfWindow, int);
+
+        impl::WindowHandle mWindow;
     };
+}
 
-    void poolEvents();
-
-    // WindowBuilder ------------------------------------------------------------------------------
-
-    class WindowBuilder {
-        friend class Window;
-    public:
-        Window build() const;
-
-        WindowBuilder &openGL(Version version) {
-            mOpenGlVersion = version;
-            return *this;
+namespace std {
+    template<>
+    struct hash<rise::Window> {
+        std::size_t operator()(rise::Window const &w) const noexcept {
+            return hasher(w.mWindow);
         }
 
-        WindowBuilder &size(Extent2D extent) {
-            mExtent = extent;
-            return *this;
-        }
-
-        WindowBuilder &title(string title) {
-            mTitle = move(title);
-            return *this;
-        }
-
-        WindowBuilder &resizable(bool value = true) {
-            mResizable = value;
-            return *this;
-        }
-
-        WindowBuilder &visible(bool value = true) {
-            mVisible = value;
-            return *this;
-        }
-
-        WindowBuilder &decorated(bool value = true) {
-            mDecorated = value;
-            return *this;
-        }
-
-        WindowBuilder &focused(bool value = true) {
-            mFocused = value;
-            return *this;
-        }
-
-        WindowBuilder &floating(bool value = true) {
-            mFloating = value;
-            return *this;
-        }
-
-        WindowBuilder &maximized(bool value = true) {
-            mMaximized = value;
-            return *this;
-        }
-
-        WindowBuilder &centerCursor(bool value = true) {
-            mCenterCursor = value;
-            return *this;
-        }
-
-        WindowBuilder &focusOnShow(bool value = true) {
-            mFocusOnShow = value;
-            return *this;
-        }
-
-        WindowBuilder &scaleToMonitor(bool value = true) {
-            mScaleToMonitor = value;
-            return *this;
-        }
-
-    private:
-        util::UniqueGlfwWindow buildGlfwWindow() const;
-
-        optional <Version> mOpenGlVersion;
-        Extent2D mExtent = Extent2D{Width(800), Height(600)};
-        string mTitle = "RiWindow";
-        bool mResizable = true;
-        bool mVisible = true;
-        bool mDecorated = true;
-        bool mFocused = false;
-        bool mFloating = false;
-        bool mMaximized = false;
-        bool mCenterCursor = false;
-        bool mFocusOnShow = false;
-        bool mScaleToMonitor = false;
+        std::hash<rise::impl::WindowHandle> hasher;
     };
-
 }

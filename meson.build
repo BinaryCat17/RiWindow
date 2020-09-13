@@ -1,27 +1,29 @@
 project('RiWindow', 'cpp',
     version : '1.0',
-    default_options : ['cpp_std=c++2a', 'warning_level=3'])
+    default_options : ['cpp_std=c++17', 'warning_level=3'])
 
 cmake = import('cmake')
 
 # dependencies
-
-signals = dependency('signals', required : false)
-if not signals.found()
-    signals = cmake.subproject('signals').dependency('signals')
-endif
 
 glfw = dependency('glfw3', required : false)
 if not glfw.found()
     glfw = cmake.subproject('glfw').dependency('glfw')
 endif
 
+rxcpp = dependency('rxcpp', required : false)
+if not rxcpp.found()
+    rxcpp = cmake.subproject('rxcpp').dependency('rxcpp')
+endif
+
+threads = dependency('threads')
+
 RiUtil = dependency('RiUtil', fallback : ['RiUtil', 'RiUtil_dep'])
 
 # project
 
 includes = include_directories('src')
-deps = [signals, glfw, RiUtil]
+deps = [RiUtil, rxcpp, glfw, threads]
 
 lib = static_library('RiWindow',
     'src/RiWindow/window.cpp',
@@ -31,7 +33,6 @@ lib = static_library('RiWindow',
 
 RiWindow_dep = declare_dependency(link_with : lib,
     include_directories : includes, dependencies : deps)
-
 
 # tests
 
