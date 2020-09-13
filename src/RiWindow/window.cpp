@@ -1,5 +1,6 @@
 #include "window.hpp"
 #include <iostream>
+#include <atomic>
 
 namespace rise {
     Window *getFromGlfw(GLFWwindow *window) {
@@ -15,7 +16,16 @@ namespace rise {
             auto rate = glfwGetVideoMode(glfwGetPrimaryMonitor())->refreshRate;
             auto interval = std::chrono::milliseconds(1000) / rate;
 
+            auto scheduler = observe_on_new_thread();
+            windowCreator.get_observable().subscribe_on(scheduler).subscribe([this](Extent2D size) {
+                handle = glfwCreateWindow(size.width, size.height, "undefined window", nullptr, nullptr);
+                if(!handle) {
+                    throw std::runtime_error("fail create window");
+                }
+            });
+
             auto glfwUpdate = observable<>::interval(interval, observe_on_new_thread());
+
             glfwUpdate.subscribe([](int) {
                 glfwPollEvents();
             });
@@ -24,13 +34,21 @@ namespace rise {
         ~GlfwInitializer() {
             glfwTerminate();
         }
+
+        GLFWwindow *createGlfwWindow(Extent2D size) {
+            windowCreator.get_subscriber().on_next(size);
+            return handle;
+        }
+
+        subject<Extent2D> windowCreator;
+        std::atomic<GLFWwindow*> handle;
     };
 
     impl::WindowHandle createWindow(Extent2D size) {
         static GlfwInitializer initializer;
 
         return impl::WindowHandle {
-            glfwCreateWindow(size.width, size.height, "undefined window", nullptr, nullptr),
+            initializer.createGlfwWindow(size),
             glfwDestroyWindow
         };
     }
