@@ -20,19 +20,19 @@ namespace rise {
             auto rate = glfwGetVideoMode(glfwGetPrimaryMonitor())->refreshRate;
             auto interval = std::chrono::milliseconds(1000) / rate;
 
-            auto scheduler = observe_on_new_thread();
-            windowCreator.get_observable().subscribe_on(scheduler).subscribe([this](Extent2D size) {
-                handle = glfwCreateWindow(size.width, size.height, "undefined window", nullptr, nullptr);
-                if(!handle) {
-                    throw std::runtime_error("fail create window");
-                }
-                wait = false;
-            });
+            auto glfwUpdate = observable<>::interval(interval, observe_on_new_thread());
 
-            auto glfwUpdate = observable<>::interval(interval, scheduler);
-
-            glfwUpdate.subscribe([](int) {
+            glfwUpdate.subscribe([this](int) {
                 glfwPollEvents();
+
+                if(needCreate) {
+                    handle = glfwCreateWindow(width, height, "undefined window", nullptr, nullptr);
+                    if(!handle) {
+                        throw std::runtime_error("fail create window");
+                    }
+                    wait = false;
+                    needCreate = false;
+                }
             });
         }
 
@@ -41,15 +41,19 @@ namespace rise {
         }
 
         GLFWwindow *createGlfwWindow(Extent2D size) {
-            windowCreator.get_subscriber().on_next(size);
+            width = size.width;
+            height = size.height;
+            needCreate = true;
             while(wait);
             wait = true;
             return handle;
         }
 
-        subject<Extent2D> windowCreator;
         std::atomic<GLFWwindow*> handle;
-        std::atomic<bool> wait;
+        std::atomic<bool> wait = true;
+        std::atomic<bool> needCreate = false;
+        std::atomic<Width> width;
+        std::atomic<Height> height;
     };
 
 
