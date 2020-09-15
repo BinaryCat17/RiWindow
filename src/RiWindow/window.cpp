@@ -1,7 +1,12 @@
 #include "window.hpp"
 #include <iostream>
+#include "platform.hpp"
 
 namespace rise {
+    WindowHandle Window::getNativeHandle() const {
+        return platform::getHandle(mWindow.get());
+    }
+
     Window *getFromGlfw(GLFWwindow *window) {
         return reinterpret_cast<Window *>(glfwGetWindowUserPointer(window));
     }

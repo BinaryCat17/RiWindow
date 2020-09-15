@@ -5,6 +5,7 @@
 #include <GLFW/glfw3.h>
 #include <atomic>
 #include <variant>
+#include "platform/defines.hpp"
 
 namespace rise {
     using namespace rxcpp;
@@ -68,6 +69,8 @@ namespace rise {
         friend bool operator!=(const Window &lhs, const Window &rhs) {
             return !(rhs == lhs);
         }
+
+        WindowHandle getNativeHandle() const;
 
     private:
         friend struct std::hash<Window>;

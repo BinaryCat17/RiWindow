@@ -18,12 +18,17 @@ endif
 
 threads = dependency('threads')
 
+x11 = dependency('', required : false)
+if host_machine.system() == 'linux'
+  x11 = dependency('x11', required : true)
+endif
+
 RiUtil = dependency('RiUtil', fallback : ['RiUtil', 'RiUtil_dep'])
 
 # project
 
 includes = include_directories('src')
-deps = [RiUtil, rxcpp, glfw, threads]
+deps = [RiUtil, rxcpp, glfw, threads, x11]
 
 lib = static_library('RiWindow',
     'src/RiWindow/window.cpp',
