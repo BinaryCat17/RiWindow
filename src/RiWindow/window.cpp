@@ -1,6 +1,5 @@
 #include "window.hpp"
 #include <iostream>
-#include <atomic>
 
 namespace rise {
     Window *getFromGlfw(GLFWwindow *window) {
@@ -22,9 +21,10 @@ namespace rise {
                 if(!handle) {
                     throw std::runtime_error("fail create window");
                 }
+                wait = false;
             });
 
-            auto glfwUpdate = observable<>::interval(interval, observe_on_new_thread());
+            auto glfwUpdate = observable<>::interval(interval, scheduler);
 
             glfwUpdate.subscribe([](int) {
                 glfwPollEvents();
@@ -37,12 +37,16 @@ namespace rise {
 
         GLFWwindow *createGlfwWindow(Extent2D size) {
             windowCreator.get_subscriber().on_next(size);
+            while(wait);
+            wait = true;
             return handle;
         }
 
         subject<Extent2D> windowCreator;
         std::atomic<GLFWwindow*> handle;
+        std::atomic<bool> wait;
     };
+
 
     impl::WindowHandle createWindow(Extent2D size) {
         static GlfwInitializer initializer;
