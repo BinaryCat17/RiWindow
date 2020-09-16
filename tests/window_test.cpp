@@ -30,7 +30,6 @@ int main() {
                     windows.erase(window);
                     break;
             }
-
         });
 
         window.getNativeHandle();

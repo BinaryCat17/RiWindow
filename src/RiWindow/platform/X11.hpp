@@ -8,14 +8,10 @@ namespace rise {
         struct X11Handle {
             ::Display *display;
             ::Window window;
-            ::XVisualInfo visual;
         };
 
         inline X11Handle getHandle(GLFWwindow* window) {
-            auto display = glfwGetX11Display();
-            XVisualInfo info;
-            XMatchVisualInfo(display, XDefaultScreen(display), 24, TrueColor, &info);
-            return { display, glfwGetX11Window(window), info };
+            return { glfwGetX11Display(), glfwGetX11Window(window) };
         }
     }
 }
