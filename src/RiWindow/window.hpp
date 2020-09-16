@@ -6,6 +6,13 @@
 #include <atomic>
 #include <variant>
 #include "platform/defines.hpp"
+#include <GLFW/glfw3.h>
+
+struct VkInstance_T;
+typedef struct VkInstance_T *VkInstance;
+
+struct VkSurfaceKHR_T;
+typedef struct VkSurfaceKHR_T *VkSurfaceKHR;
 
 namespace rise {
     using namespace rxcpp;
@@ -27,6 +34,10 @@ namespace rise {
         Framed,
     };
 
+    enum class WindowClientApi {
+        NoApi,
+    };
+
     namespace impl {
         using WindowHandle = std::unique_ptr<GLFWwindow, decltype(glfwDestroyWindow) *>;
     }
@@ -39,12 +50,13 @@ namespace rise {
         explicit Window(
             WindowProperty<std::string_view> const &title,
             Extent2D const &size,
-            std::optional<WindowProperty<WindowEvent>> const &events = {}
+            std::optional<WindowProperty<WindowEvent>> const &events = {},
+            WindowClientApi api = WindowClientApi::NoApi
         );
 
-        Window(Window && rhs) noexcept;
+        Window(Window &&rhs) noexcept;
 
-        Window& operator=(Window && rhs) noexcept;
+        Window &operator=(Window &&rhs) noexcept;
 
         [[nodiscard]] observable<WindowUserEvent> event() const {
             return mEvents.get_observable();
@@ -70,7 +82,11 @@ namespace rise {
             return !(rhs == lhs);
         }
 
-        WindowHandle getNativeHandle() const;
+        [[nodiscard]] WindowHandle nativeHandle() const;
+
+        [[nodiscard]] std::vector<std::string> vulkanExtensions() const;
+
+        [[nodiscard]] VkSurfaceKHR vulkanSurface(VkInstance instance) const;
 
     private:
         friend struct std::hash<Window>;

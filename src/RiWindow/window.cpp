@@ -1,9 +1,10 @@
+#define GLFW_INCLUDE_VULKAN
 #include "window.hpp"
 #include <iostream>
 #include "platform.hpp"
 
 namespace rise {
-    WindowHandle Window::getNativeHandle() const {
+    WindowHandle Window::nativeHandle() const {
         return platform::getHandle(mWindow.get());
     }
 
@@ -57,8 +58,16 @@ namespace rise {
     };
 
 
-    impl::WindowHandle createWindow(Extent2D size) {
+    impl::WindowHandle createWindow(Extent2D size, WindowClientApi api) {
         static GlfwInitializer initializer;
+
+        switch (api) {
+            case rise::WindowClientApi::NoApi:
+                glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+                break;
+            default:
+                break;
+        }
 
         return impl::WindowHandle {
             initializer.createGlfwWindow(size),
@@ -87,8 +96,9 @@ namespace rise {
     Window::Window(
         WindowProperty<std::string_view> const &title,
         Extent2D const &size,
-        std::optional<WindowProperty<WindowEvent>> const &events
-    ) : mWindow(createWindow(size)) {
+        std::optional <WindowProperty<WindowEvent>> const &events,
+        WindowClientApi api
+    ) : mWindow(createWindow(size, api)) {
 
         glfwSetWindowUserPointer(mWindow.get(), this);
         glfwSetWindowCloseCallback(mWindow.get(), &closeCallback);
@@ -178,5 +188,20 @@ namespace rise {
         auto window = getFromGlfw(glfWindow);
         window->mEvents.get_subscriber().on_next(
             val ? WindowUserEvent::Focused : WindowUserEvent::Relaxed);
+    }
+
+    std::vector<std::string> Window::vulkanExtensions() const {
+        uint32_t count;
+        const char** extensions = glfwGetRequiredInstanceExtensions(&count);
+        return std::vector<std::string>(extensions, extensions + count);
+    }
+
+    VkSurfaceKHR Window::vulkanSurface(VkInstance instance) const {
+        VkSurfaceKHR surface;
+        VkResult err = glfwCreateWindowSurface(instance, mWindow.get(), NULL, &surface);
+        if(err) {
+            throw std::runtime_error("Vulkan surface create error");
+        }
+        return surface;
     }
 }

@@ -32,7 +32,8 @@ int main() {
             }
         });
 
-        window.getNativeHandle();
+        window.nativeHandle();
+        window.vulkanExtensions();
 
         auto area = window.size() | transform([](Extent2D size) {
             return size.width * size.height;
