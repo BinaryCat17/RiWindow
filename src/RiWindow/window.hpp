@@ -43,14 +43,14 @@ namespace rise {
     }
 
     template<typename T>
-    using WindowProperty = std::variant<observable<T>, T>;
+    using WindowProperty = std::variant <observable<T>, T>;
 
     class Window : NonCopyable {
     public:
         explicit Window(
             WindowProperty<std::string_view> const &title,
             Extent2D const &size,
-            std::optional<WindowProperty<WindowEvent>> const &events = {},
+            std::optional <WindowProperty<WindowEvent>> const &events = {},
             WindowClientApi api = WindowClientApi::NoApi
         );
 
@@ -58,19 +58,19 @@ namespace rise {
 
         Window &operator=(Window &&rhs) noexcept;
 
-        [[nodiscard]] observable<WindowUserEvent> event() const {
+        [[nodiscard]] observable <WindowUserEvent> event() const {
             return mEvents.get_observable();
         }
 
-        [[nodiscard]] observable<Extent2D> size() const {
+        [[nodiscard]] observable <Extent2D> size() const {
             return mSize.get_observable();
         }
 
-        [[nodiscard]] observable<Point2D> pos() const {
+        [[nodiscard]] observable <Point2D> pos() const {
             return mPos.get_observable();
         }
 
-        [[nodiscard]] observable<Extent2D> frameBufferSize() const {
+        [[nodiscard]] observable <Extent2D> frameBufferSize() const {
             return mFrameBufferSize.get_observable();
         }
 
@@ -84,20 +84,18 @@ namespace rise {
 
         [[nodiscard]] WindowHandle nativeHandle() const;
 
-        [[nodiscard]] std::vector<std::string> vulkanExtensions() const;
-
         [[nodiscard]] VkSurfaceKHR vulkanSurface(VkInstance instance) const;
 
     private:
         friend struct std::hash<Window>;
 
-        subject<WindowUserEvent> mEvents;
+        subject <WindowUserEvent> mEvents;
 
-        subject<Extent2D> mSize;
+        subject <Extent2D> mSize;
 
-        subject<Point2D> mPos;
+        subject <Point2D> mPos;
 
-        subject<Extent2D> mFrameBufferSize;
+        subject <Extent2D> mFrameBufferSize;
 
         static void closeCallback(GLFWwindow *glfWindow);
 
@@ -113,6 +111,8 @@ namespace rise {
 
         impl::WindowHandle mWindow;
     };
+
+    std::vector <std::string> windowVulkanExtensions();
 }
 
 namespace std {

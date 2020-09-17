@@ -4,7 +4,7 @@
 using namespace rise;
 
 int main() {
-    rise::Window gabeWindow("Ave Gaben!", Extent2D(800, 600), WindowEvent::FullScreen);
+    rise::Window gabeWindow("Ave Gaben!", Extent2D(800, 600),WindowEvent::FullScreen);
 
     std::unordered_set<rise::Window> windows;
     windows.insert(std::move(gabeWindow));
@@ -32,8 +32,7 @@ int main() {
             }
         });
 
-        window.nativeHandle();
-        window.vulkanExtensions();
+        windowVulkanExtensions();
 
         auto area = window.size() | transform([](Extent2D size) {
             return size.width * size.height;

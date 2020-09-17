@@ -26,9 +26,9 @@ namespace rise {
             glfwUpdate.subscribe([this](int) {
                 glfwPollEvents();
 
-                if(needCreate) {
+                if (needCreate) {
                     handle = glfwCreateWindow(width, height, "undefined window", nullptr, nullptr);
-                    if(!handle) {
+                    if (!handle) {
                         throw std::runtime_error("fail create window");
                     }
                     wait = false;
@@ -45,12 +45,12 @@ namespace rise {
             width = size.width;
             height = size.height;
             needCreate = true;
-            while(wait);
+            while (wait);
             wait = true;
             return handle;
         }
 
-        std::atomic<GLFWwindow*> handle;
+        std::atomic<GLFWwindow *> handle;
         std::atomic<bool> wait = true;
         std::atomic<bool> needCreate = false;
         std::atomic<Width> width;
@@ -80,7 +80,7 @@ namespace rise {
         return std::visit(overloaded {
             [&fn](T const &v) {
                 fn(v);
-            }, [&fn](observable<T> const &v) {
+            }, [&fn](observable <T> const &v) {
                 v.subscribe(fn);
             },
         }, prop);
@@ -96,7 +96,7 @@ namespace rise {
     Window::Window(
         WindowProperty<std::string_view> const &title,
         Extent2D const &size,
-        std::optional <WindowProperty<WindowEvent>> const &events,
+        std::optional<WindowProperty<WindowEvent>> const &events,
         WindowClientApi api
     ) : mWindow(createWindow(size, api)) {
 
@@ -190,16 +190,16 @@ namespace rise {
             val ? WindowUserEvent::Focused : WindowUserEvent::Relaxed);
     }
 
-    std::vector<std::string> Window::vulkanExtensions() const {
+    std::vector<std::string> windowVulkanExtensions() {
         uint32_t count;
-        const char** extensions = glfwGetRequiredInstanceExtensions(&count);
+        const char **extensions = glfwGetRequiredInstanceExtensions(&count);
         return std::vector<std::string>(extensions, extensions + count);
     }
 
     VkSurfaceKHR Window::vulkanSurface(VkInstance instance) const {
         VkSurfaceKHR surface;
         VkResult err = glfwCreateWindowSurface(instance, mWindow.get(), NULL, &surface);
-        if(err) {
+        if (err) {
             throw std::runtime_error("Vulkan surface create error");
         }
         return surface;
